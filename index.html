@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<title>Os meus livros</title>
+<style>
+:root{--bg:#eef2f1;--surface:#fff;--ink:#14232b;--muted:#5c6f76;--line:#d5dedc;--accent:#0f766e;--on-accent:#fff;--star:#d98a00;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1a1d;--surface:#16262a;--ink:#e6efee;--muted:#93a9ad;--line:#27403f;--accent:#2dd4bf;--on-accent:#06201d;--star:#f5b73b}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:640px;margin:0 auto;padding:16px 16px 96px}
+h1{font:700 30px/1.1 Georgia,"Times New Roman",serif;margin:8px 0 14px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px}
+.stat b{display:block;font:700 24px Georgia,serif}.stat span{font-size:13px;color:var(--muted)}
+input,select,textarea,button{font:inherit;color:inherit}
+input,select,textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.tabs{display:flex;gap:6px;margin:10px 0;overflow-x:auto}
+.tab{padding:8px 14px;border:1px solid var(--line);border-radius:20px;background:var(--surface);white-space:nowrap;cursor:pointer}
+.tab[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.book{display:flex;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:10px;margin:8px 0;overflow:hidden;cursor:pointer}
+.spine{width:12px;flex:none}
+.cov{width:56px;height:84px;object-fit:cover;flex:none;margin:10px 0 10px 10px;border-radius:4px}
+.info{padding:12px 12px 12px 0;flex:1;min-width:0}
+.book .info:first-child{padding-left:12px}
+.title{font:700 18px/1.2 Georgia,serif}.author{color:var(--muted);font-size:14px}
+.meta{display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:13px;color:var(--muted)}
+.stars{color:var(--star);letter-spacing:1px}
+.empty{text-align:center;color:var(--muted);padding:40px 12px}
+.fab{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom,0px));background:var(--accent);color:var(--on-accent);border:0;border-radius:28px;padding:14px 22px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.25);cursor:pointer}
+dialog{width:min(560px,94vw);max-height:92vh;border:0;border-radius:14px;padding:18px;background:var(--bg);color:var(--ink)}
+dialog::backdrop{background:rgba(0,0,0,.5)}
+label{display:block;font-size:14px;color:var(--muted);margin:10px 0 4px}
+.row{display:flex;gap:8px;margin-top:16px}
+.srch{background:var(--surface);border:1px solid var(--accent);border-radius:12px;padding:12px;margin:8px 0}
+.srch .row{margin-top:8px}
+.srch label{margin-top:0}
+.btn{flex:1;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);cursor:pointer}
+.btn.p{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:700}
+.btn.d{color:#c0392b}
+#st{font-size:14px;margin-top:8px;color:var(--muted)}
+#vid{width:100%;border-radius:10px;margin-top:8px;background:#000}
+.cvp{display:block;height:150px;border-radius:6px;margin:6px 0}
+.rate button{background:none;border:0;font-size:28px;color:var(--line);cursor:pointer;padding:0 2px}
+.rate button.on{color:var(--star)}
+.foot{display:flex;gap:8px;margin-top:24px}
+.foot .btn{font-size:14px}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+<main>
+<h1>Os meus livros</h1>
+<div class="stats" id="stats"></div>
+<input id="q" type="search" placeholder="Pesquisar na minha lista">
+<div class="tabs" id="tabs"></div>
+<div id="list"></div>
+<div class="foot">
+<button class="btn" id="exp">Exportar cópia</button>
+<button class="btn" id="imp">Importar cópia</button>
+<input id="file" type="file" accept="application/json" hidden>
+</div>
+</main>
+<button class="fab" id="add">+ Novo livro</button>
+
+<dialog id="dlg">
+<h2 id="dt" style="margin:0 0 4px;font:700 22px Georgia,serif">Novo livro</h2>
+<div class="srch">
+<label for="f-q">Procurar online por ISBN ou título</label>
+<input id="f-q" inputmode="search" placeholder="978… ou título do livro">
+<div class="row">
+<button class="btn p" id="go" type="button">Procurar</button>
+<button class="btn" id="bar" type="button">Ler código</button>
+<button class="btn" id="ocr" type="button">Ler capa</button>
+</div>
+<video id="vid" playsinline muted hidden></video>
+<div id="st"></div>
+<input id="cam" type="file" accept="image/*" capture="environment" hidden>
+</div>
+<div id="cvp"></div>
+<label for="f-title">Título</label><input id="f-title">
+<label for="f-author">Autor</label><input id="f-author">
+<label for="f-status">Estado</label>
+<select id="f-status"><option value="quero">Quero ler</option><option value="a-ler">A ler</option><option value="lido">Lido</option></select>
+<label for="f-pages">Páginas</label><input id="f-pages" type="number" min="0" inputmode="numeric">
+<label>Avaliação</label><div class="rate" id="rate"></div>
+<label for="f-syn">Sinopse</label><textarea id="f-syn" rows="5"></textarea>
+<label for="f-notes">Notas</label><textarea id="f-notes" rows="3"></textarea>
+<div class="row">
+<button class="btn d" id="del" hidden>Apagar</button>
+<button class="btn" id="cancel">Cancelar</button>
+<button class="btn p" id="save">Guardar</button>
+</div>
+</dialog>
+
+<script>
+const KEY="livros-v1";
+const LABEL={quero:"Quero ler","a-ler":"A ler",lido:"Lido"};
+const COLORS=["#0f766e","#b45309","#7c3aed","#be123c","#1d4ed8","#4d7c0f","#c2410c","#0e7490"];
+let books=[],filter="todos",editing=null,rating=0,cover="",isbn="",stream=null,scanning=false;
+try{books=JSON.parse(localStorage.getItem(KEY)||"[]")}catch(e){books=[]}
+const $=id=>document.getElementById(id);
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(books))}catch(e){}}
+function color(t){let h=0;for(const c of t)h=(h*31+c.charCodeAt(0))>>>0;return COLORS[h%COLORS.length]}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+const st=t=>{$("st").textContent=t||""};
+
+function render(){
+ const n=s=>books.filter(b=>b.status===s).length;
+ $("stats").innerHTML=`<div class="stat"><b>${books.length}</b><span>Total</span></div><div class="stat"><b>${n("lido")}</b><span>Lidos</span></div><div class="stat"><b>${books.filter(b=>b.status==="lido").reduce((a,b)=>a+(+b.pages||0),0)}</b><span>Páginas lidas</span></div>`;
+ const tabs=[["todos","Todos"],["quero","Quero ler"],["a-ler","A ler"],["lido","Lidos"]];
+ $("tabs").innerHTML=tabs.map(([k,l])=>`<button class="tab" data-k="${k}" aria-pressed="${filter===k}">${l}</button>`).join("");
+ const q=$("q").value.trim().toLowerCase();
+ const items=books.filter(b=>(filter==="todos"||b.status===filter)&&(b.title+" "+b.author).toLowerCase().includes(q));
+ $("list").innerHTML=items.length?items.map(b=>`<div class="book" data-id="${b.id}">${b.cover?`<img class="cov" src="${esc(b.cover)}" alt="" onerror="this.remove()">`:`<div class="spine" style="background:${color(b.title)}"></div>`}<div class="info"><div class="title">${esc(b.title)}</div><div class="author">${esc(b.author||"Autor desconhecido")}</div><div class="meta"><span>${LABEL[b.status]}${b.pages?" · "+b.pages+" pág.":""}</span><span class="stars">${"★".repeat(b.rating||0)}</span></div></div></div>`).join(""):`<div class="empty">${books.length?"Nenhum livro encontrado.":"Ainda não tens livros. Toca em “Novo livro” para começar."}</div>`;
+}
+function drawRate(){$("rate").innerHTML=[1,2,3,4,5].map(i=>`<button type="button" data-r="${i}" class="${i<=rating?"on":""}" aria-label="${i} estrelas">★</button>`).join("")}
+function showCover(){$("cvp").innerHTML=cover?`<img class="cvp" src="${esc(cover)}" alt="Capa" onerror="this.remove()">`:""}
+
+function openDlg(id){
+ editing=id?books.find(b=>b.id===id):null;
+ const b=editing||{title:"",author:"",status:"quero",pages:"",rating:0,notes:"",synopsis:"",cover:"",isbn:""};
+ $("dt").textContent=editing?"Editar livro":"Novo livro";
+ $("f-title").value=b.title;$("f-author").value=b.author;$("f-status").value=b.status;
+ $("f-pages").value=b.pages;$("f-notes").value=b.notes;$("f-syn").value=b.synopsis||"";
+ $("f-q").value="";st("");cover=b.cover||"";isbn=b.isbn||"";showCover();
+ rating=b.rating||0;drawRate();
+ $("del").hidden=!editing;$("dlg").showModal();
+}
+function fill(b){
+ $("f-title").value=b.title||"";$("f-author").value=b.author||"";
+ $("f-pages").value=b.pages||"";$("f-syn").value=b.synopsis||"";
+ cover=b.cover||"";isbn=b.isbn||"";showCover();
+}
+
+/* ---------- Pesquisa online ---------- */
+async function gb(q){
+ const r=await fetch("https://www.googleapis.com/books/v1/volumes?maxResults=1&q="+q);
+ if(!r.ok)throw new Error("gb");
+ const d=await r.json();return d.items&&d.items[0]?d.items[0].volumeInfo:null;
+}
+async function lookup(q){
+ const c=q.replace(/[-\s]/g,""),code=/^(\d{9}[\dXx]|\d{13})$/.test(c)?c:"";
+ let v=null,b=null;
+ try{v=await gb(code?"isbn:"+code:encodeURIComponent(q))}catch(e){}
+ if(v){
+  const im=v.imageLinks||{};
+  b={title:v.title+(v.subtitle?": "+v.subtitle:""),author:(v.authors||[]).join(", "),pages:v.pageCount||"",
+   synopsis:(v.description||"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim(),
+   cover:(im.thumbnail||im.smallThumbnail||"").replace("http:","https:"),isbn:code};
+ }else if(code){
+  try{
+   const r=await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${code}&format=json&jscmd=data`);
+   const d=(await r.json())["ISBN:"+code];
+   if(d)b={title:d.title,author:(d.authors||[]).map(a=>a.name).join(", "),pages:d.number_of_pages||"",synopsis:"",cover:d.cover?d.cover.medium:"",isbn:code};
+  }catch(e){}
+ }
+ if(b&&!b.cover&&code)b.cover=`https://covers.openlibrary.org/b/isbn/${code}-M.jpg?default=false`;
+ return b;
+}
+async function search(){
+ const q=$("f-q").value.trim();if(!q)return;
+ if(!navigator.onLine){st("Sem ligação à internet.");return}
+ st("A procurar…");
+ const b=await lookup(q);
+ if(b){fill(b);st("Encontrado. Confirma os dados e guarda.")}
+ else st("Nada encontrado. Tenta outro termo ou preenche à mão.");
+}
+$("go").onclick=search;
+$("f-q").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();search()}};
+
+/* ---------- Código de barras ---------- */
+function stopCam(){scanning=false;if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}$("vid").hidden=true}
+$("bar").onclick=async()=>{
+ if(scanning){stopCam();return}
+ if(!("BarcodeDetector" in window)){st("Este navegador não lê códigos de barras. Escreve o ISBN.");return}
+ try{
+  const det=new BarcodeDetector({formats:["ean_13","ean_8"]});
+  stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+  const v=$("vid");v.srcObject=stream;v.hidden=false;await v.play();
+  scanning=true;st("Aponta ao código de barras do livro…");
+  while(scanning){
+   const r=await det.detect(v).catch(()=>[]);
+   if(r.length){stopCam();$("f-q").value=r[0].rawValue;await search();break}
+   await new Promise(ok=>setTimeout(ok,300));
+  }
+ }catch(e){stopCam();st("Não foi possível abrir a câmara. Verifica a permissão.")}
+};
+
+/* ---------- OCR da capa ---------- */
+const loadScript=src=>new Promise((ok,ko)=>{const s=document.createElement("script");s.src=src;s.onload=ok;s.onerror=ko;document.head.appendChild(s)});
+$("ocr").onclick=()=>$("cam").click();
+$("cam").onchange=async e=>{
+ const f=e.target.files[0];e.target.value="";if(!f)return;
+ if(!navigator.onLine){st("Sem ligação à internet.");return}
+ try{
+  st("A ler a capa (da primeira vez demora um pouco)…");
+  if(!window.Tesseract)await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js");
+  const {data}=await Tesseract.recognize(f,"por+eng");
+  const q=data.text.split("\n").map(l=>l.replace(/[^\p{L}\p{N} ]/gu," ").replace(/\s+/g," ").trim()).filter(l=>l.length>3).slice(0,4).join(" ");
+  if(!q){st("Não consegui ler texto na capa. Tenta com mais luz.");return}
+  $("f-q").value=q;await search();
+ }catch(err){st("Falhou a leitura da capa. Tenta de novo ou escreve o título.")}
+};
+
+/* ---------- Lista ---------- */
+$("add").onclick=()=>openDlg();
+$("cancel").onclick=()=>$("dlg").close();
+$("dlg").onclose=stopCam;
+$("rate").onclick=e=>{const r=+e.target.dataset.r;if(r){rating=rating===r?0:r;drawRate()}};
+$("save").onclick=()=>{
+ const title=$("f-title").value.trim();
+ if(!title){$("f-title").focus();return}
+ const data={title,author:$("f-author").value.trim(),status:$("f-status").value,pages:$("f-pages").value,rating,notes:$("f-notes").value.trim(),synopsis:$("f-syn").value.trim(),cover,isbn};
+ if(editing)Object.assign(editing,data);else books.unshift({id:Date.now().toString(36),...data});
+ persist();$("dlg").close();render();
+};
+$("del").onclick=()=>{if(confirm("Apagar este livro?")){books=books.filter(b=>b!==editing);persist();$("dlg").close();render()}};
+$("list").onclick=e=>{const el=e.target.closest(".book");if(el)openDlg(el.dataset.id)};
+$("tabs").onclick=e=>{const k=e.target.dataset.k;if(k){filter=k;render()}};
+$("q").oninput=render;
+$("exp").onclick=()=>{
+ const a=document.createElement("a");
+ a.href="data:application/json;charset=utf-8,"+encodeURIComponent(JSON.stringify(books,null,1));
+ a.download="livros.json";a.click();
+};
+$("imp").onclick=()=>$("file").click();
+$("file").onchange=async e=>{
+ try{const d=JSON.parse(await e.target.files[0].text());if(Array.isArray(d)&&confirm("Substituir a lista atual por esta cópia?")){books=d;persist();render()}}
+ catch(err){alert("Ficheiro inválido.")}
+};
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+render();
+</script>
+</body>
+</html>
