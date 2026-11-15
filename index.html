@@ -65,7 +65,7 @@ label{display:block;font-size:14px;color:var(--muted);margin:10px 0 4px}
 <button class="btn" id="imp">Importar cópia</button>
 <input id="file" type="file" accept="application/json" hidden>
 </div>
-<p style="text-align:center;color:var(--muted);font-size:12px;margin-top:20px">Versão 10</p>
+<p style="text-align:center;color:var(--muted);font-size:12px;margin-top:20px">Versão 11</p>
 </main>
 <button class="fab" id="add">+ Novo livro</button>
 
@@ -166,7 +166,7 @@ async function fromWorker(q,code){
  const u=$("wurl").value.trim();
  if(!u||!code)return null;
  const d=await getJson(u.replace(/\/$/,"")+"/?isbn="+code);
- return d&&d.title?{title:d.title,author:d.author||"",pages:d.pages||"",synopsis:d.synopsis||"",publisher:d.publisher||"",year:d.year||"",cover:d.cover||`https://covers.openlibrary.org/b/isbn/${code}-M.jpg?default=false`,isbn:code}:null;
+ return d&&d.title?{title:d.title,author:d.author||"",pages:d.pages||"",synopsis:d.synopsis||"",publisher:d.publisher||"",year:d.year||"",cover:d.cover||"",isbn:code}:null;
 }
 async function olDesc(key){
  if(!key)return "";
@@ -214,14 +214,25 @@ function isbnVars(c){
 async function lookup(q){
  const c=q.replace(/[-\s]/g,""),code=/^(\d{9}[\dXx]|\d{13})$/.test(c)?c:"";
  const vars=code?isbnVars(code):[""];
- const errs=[];
- for(const [nome,f] of [["Worker",fromWorker],["Google Books",fromGoogle],["Open Library",fromOL]].filter(x=>x[0]!=="Worker"||$("wurl").value.trim())){
+ const errs=[];let b=null;
+ const srcs=[["Worker",fromWorker],["Google Books",fromGoogle],["Open Library",fromOL]]
+  .filter(x=>x[0]!=="Worker"||($("wurl").value.trim()&&code));
+ for(const [nome,f] of srcs){
+  if(b&&b.synopsis&&b.cover)break;
+  let got=false;
   for(const v of vars){
-   try{const b=await f(q,v);if(b){if(!b.synopsis&&nome!=="Open Library")b.synopsis=await extraSyn(q,vars,nome==="Worker");return {b,errs}}errs.push(nome+" "+(v||"título")+": sem resultados")}
-   catch(e){errs.push(nome+": "+e.message);break}
+   try{
+    const x=await f(q,v);
+    if(x){got=true;if(!b)b=x;else for(const k of Object.keys(x))if(!b[k]&&x[k])b[k]=x[k];break}
+   }catch(e){errs.push(nome+": "+e.message);got=true;break}
   }
+  if(!got)errs.push(nome+": sem resultados");
  }
- return {b:null,errs};
+ if(b){
+  if(b.cover)b.cover=b.cover.replace(/^http:/,"https:");
+  else if(code)b.cover=`https://covers.openlibrary.org/b/isbn/${code}-M.jpg?default=false`;
+ }
+ return {b,errs};
 }
 async function search(){
  const q=$("f-q").value.trim();if(!q)return;
