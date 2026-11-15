@@ -81,6 +81,7 @@ label{display:block;font-size:14px;color:var(--muted);margin:10px 0 4px}
 <video id="vid" playsinline muted hidden></video>
 <div id="st"></div>
 <input id="cam" type="file" accept="image/*" capture="environment" hidden>
+<details style="margin-top:8px"><summary style="font-size:14px;color:var(--muted)">Chave Google Books (opcional)</summary><input id="gkey" placeholder="Cola aqui a tua chave de API" autocomplete="off"></details>
 </div>
 <div id="cvp"></div>
 <label for="f-title">Título</label><input id="f-title">
@@ -139,38 +140,54 @@ function fill(b){
 }
 
 /* ---------- Pesquisa online ---------- */
-async function gb(q){
- const r=await fetch("https://www.googleapis.com/books/v1/volumes?maxResults=1&q="+q);
- if(!r.ok)throw new Error("gb");
- const d=await r.json();return d.items&&d.items[0]?d.items[0].volumeInfo:null;
+async function getJson(u){
+ const r=await fetch(u);
+ if(!r.ok)throw new Error("HTTP "+r.status);
+ return r.json();
+}
+async function fromGoogle(q,code){
+ const k=$("gkey").value.trim();
+ const d=await getJson("https://www.googleapis.com/books/v1/volumes?maxResults=1&printType=books&q="+(code?"isbn:"+code:encodeURIComponent(q))+(k?"&key="+encodeURIComponent(k):""));
+ const v=d.items&&d.items[0]&&d.items[0].volumeInfo;
+ if(!v)return null;
+ const im=v.imageLinks||{};
+ return {title:v.title+(v.subtitle?": "+v.subtitle:""),author:(v.authors||[]).join(", "),pages:v.pageCount||"",
+  synopsis:(v.description||"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim(),
+  cover:(im.thumbnail||im.smallThumbnail||"").replace("http:","https:"),isbn:code};
+}
+async function fromOL(q,code){
+ if(code){
+  const d=(await getJson(`https://openlibrary.org/api/books?bibkeys=ISBN:${code}&format=json&jscmd=data`))["ISBN:"+code];
+  if(!d)return fromOL("isbn:"+code,"");
+  return {title:d.title,author:(d.authors||[]).map(a=>a.name).join(", "),pages:d.number_of_pages||"",synopsis:"",
+   cover:d.cover?d.cover.medium:`https://covers.openlibrary.org/b/isbn/${code}-M.jpg?default=false`,isbn:code};
+ }
+ const d=await getJson("https://openlibrary.org/search.json?limit=1&fields=key,title,author_name,number_of_pages_median,cover_i,isbn&q="+encodeURIComponent(q));
+ const x=d.docs&&d.docs[0];
+ if(!x)return null;
+ let syn="";
+ try{const w=await getJson("https://openlibrary.org"+x.key+".json");const ds=w.description;syn=typeof ds==="string"?ds:(ds&&ds.value)||""}catch(e){}
+ return {title:x.title,author:(x.author_name||[]).join(", "),pages:x.number_of_pages_median||"",synopsis:syn,
+  cover:x.cover_i?`https://covers.openlibrary.org/b/id/${x.cover_i}-M.jpg`:"",isbn:(x.isbn||[])[0]||""};
 }
 async function lookup(q){
  const c=q.replace(/[-\s]/g,""),code=/^(\d{9}[\dXx]|\d{13})$/.test(c)?c:"";
- let v=null,b=null;
- try{v=await gb(code?"isbn:"+code:encodeURIComponent(q))}catch(e){}
- if(v){
-  const im=v.imageLinks||{};
-  b={title:v.title+(v.subtitle?": "+v.subtitle:""),author:(v.authors||[]).join(", "),pages:v.pageCount||"",
-   synopsis:(v.description||"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim(),
-   cover:(im.thumbnail||im.smallThumbnail||"").replace("http:","https:"),isbn:code};
- }else if(code){
-  try{
-   const r=await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${code}&format=json&jscmd=data`);
-   const d=(await r.json())["ISBN:"+code];
-   if(d)b={title:d.title,author:(d.authors||[]).map(a=>a.name).join(", "),pages:d.number_of_pages||"",synopsis:"",cover:d.cover?d.cover.medium:"",isbn:code};
-  }catch(e){}
+ const errs=[];
+ for(const [nome,f] of [["Google Books",fromGoogle],["Open Library",fromOL]]){
+  try{const b=await f(q,code);if(b)return {b,errs};errs.push(nome+": sem resultados")}catch(e){errs.push(nome+": "+e.message)}
  }
- if(b&&!b.cover&&code)b.cover=`https://covers.openlibrary.org/b/isbn/${code}-M.jpg?default=false`;
- return b;
+ return {b:null,errs};
 }
 async function search(){
  const q=$("f-q").value.trim();if(!q)return;
  if(!navigator.onLine){st("Sem ligação à internet.");return}
  st("A procurar…");
- const b=await lookup(q);
+ const {b,errs}=await lookup(q);
  if(b){fill(b);st("Encontrado. Confirma os dados e guarda.")}
- else st("Nada encontrado. Tenta outro termo ou preenche à mão.");
+ else st("Não encontrei. "+errs.join("; ")+".");
 }
+try{$("gkey").value=localStorage.getItem("gkey-v1")||""}catch(e){}
+$("gkey").oninput=()=>{try{localStorage.setItem("gkey-v1",$("gkey").value.trim())}catch(e){}};
 $("go").onclick=search;
 $("f-q").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();search()}};
 
