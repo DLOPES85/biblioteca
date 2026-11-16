@@ -65,7 +65,7 @@ label{display:block;font-size:14px;color:var(--muted);margin:10px 0 4px}
 <button class="btn" id="imp">Importar cópia</button>
 <input id="file" type="file" accept="application/json" hidden>
 </div>
-<p style="text-align:center;color:var(--muted);font-size:12px;margin-top:20px">Versão 13</p>
+<p style="text-align:center;color:var(--muted);font-size:12px;margin-top:20px">Versão 14</p>
 </main>
 <button class="fab" id="add">+ Novo livro</button>
 
@@ -84,7 +84,8 @@ label{display:block;font-size:14px;color:var(--muted);margin:10px 0 4px}
 <div id="isbw" hidden style="margin-top:6px;font-size:14px"><a id="isb" target="_blank" rel="noopener" style="color:var(--accent)">Procurar este ISBN no ISBNsearch.org</a> · <a id="wk" target="_blank" rel="noopener" style="color:var(--accent)">Procurar na Wook</a></div>
 <input id="cam" type="file" accept="image/*" capture="environment" hidden>
 <details style="margin-top:8px"><summary style="font-size:14px;color:var(--muted)">Opções avançadas (chave Google Books e Worker)</summary><input id="gkey" placeholder="Cola aqui a tua chave de API" autocomplete="off">
-<input id="wurl" placeholder="Endereço do Worker (https://….workers.dev)" autocomplete="off" style="margin-top:6px"></details>
+<input id="wurl" placeholder="Endereço do Worker (https://….workers.dev)" autocomplete="off" style="margin-top:6px">
+<label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:14px"><input type="checkbox" id="extras" style="width:auto"> Usar também Google Books e Open Library</label></details>
 </div>
 <div id="cvp"></div>
 <button class="btn" type="button" id="capa" style="width:100%;flex:none">📷 Tirar foto da capa</button>
@@ -217,8 +218,9 @@ async function lookup(q){
  const c=q.replace(/[-\s]/g,""),code=/^(\d{9}[\dXx]|\d{13})$/.test(c)?c:"";
  const vars=code?isbnVars(code):[""];
  const errs=[];let b=null;
+ const soWorker=code&&$("wurl").value.trim()&&!$("extras").checked;
  const srcs=[["Worker",fromWorker],["Google Books",fromGoogle],["Open Library",fromOL]]
-  .filter(x=>x[0]!=="Worker"||($("wurl").value.trim()&&code));
+  .filter(x=>x[0]==="Worker"?($("wurl").value.trim()&&code):!soWorker);
  for(const [nome,f] of srcs){
   if(b&&b.synopsis&&b.cover)break;
   let got=false;
@@ -232,7 +234,7 @@ async function lookup(q){
  }
  if(b){
   if(b.cover)b.cover=b.cover.replace(/^http:/,"https:");
-  else if(code)b.cover=`https://covers.openlibrary.org/b/isbn/${code}-L.jpg?default=false`;
+  else if(code&&!soWorker)b.cover=`https://covers.openlibrary.org/b/isbn/${code}-L.jpg?default=false`;
  }
  return {b,errs};
 }
@@ -269,6 +271,8 @@ try{$("gkey").value=localStorage.getItem("gkey-v1")||""}catch(e){}
 $("gkey").oninput=()=>{try{localStorage.setItem("gkey-v1",$("gkey").value.trim())}catch(e){}};
 try{$("wurl").value=localStorage.getItem("wurl-v1")||""}catch(e){}
 $("wurl").oninput=()=>{try{localStorage.setItem("wurl-v1",$("wurl").value.trim())}catch(e){}};
+try{$("extras").checked=localStorage.getItem("extras-v1")==="1"}catch(e){}
+$("extras").onchange=()=>{try{localStorage.setItem("extras-v1",$("extras").checked?"1":"0")}catch(e){}};
 $("capa").onclick=()=>$("capaf").click();
 $("capaf").onchange=async e=>{
  const f=e.target.files[0];e.target.value="";if(!f)return;
