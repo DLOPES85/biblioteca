@@ -65,7 +65,7 @@ label{display:block;font-size:14px;color:var(--muted);margin:10px 0 4px}
 <button class="btn" id="imp">Importar cópia</button>
 <input id="file" type="file" accept="application/json" hidden>
 </div>
-<p style="text-align:center;color:var(--muted);font-size:12px;margin-top:20px">Versão 11</p>
+<p style="text-align:center;color:var(--muted);font-size:12px;margin-top:20px">Versão 12</p>
 </main>
 <button class="fab" id="add">+ Novo livro</button>
 
@@ -81,7 +81,7 @@ label{display:block;font-size:14px;color:var(--muted);margin:10px 0 4px}
 </div>
 <video id="vid" playsinline muted hidden></video>
 <div id="st"></div>
-<div id="isbw" hidden style="margin-top:6px;font-size:14px"><a id="isb" target="_blank" rel="noopener" style="color:var(--accent)">Procurar este ISBN no ISBNsearch.org</a></div>
+<div id="isbw" hidden style="margin-top:6px;font-size:14px"><a id="isb" target="_blank" rel="noopener" style="color:var(--accent)">Procurar este ISBN no ISBNsearch.org</a> · <a id="wk" target="_blank" rel="noopener" style="color:var(--accent)">Procurar na Wook</a></div>
 <input id="cam" type="file" accept="image/*" capture="environment" hidden>
 <details style="margin-top:8px"><summary style="font-size:14px;color:var(--muted)">Opções avançadas (chave Google Books e Worker)</summary><input id="gkey" placeholder="Cola aqui a tua chave de API" autocomplete="off">
 <input id="wurl" placeholder="Endereço do Worker (https://….workers.dev)" autocomplete="off" style="margin-top:6px"></details>
@@ -91,11 +91,12 @@ label{display:block;font-size:14px;color:var(--muted);margin:10px 0 4px}
 <input id="capaf" type="file" accept="image/*" capture="environment" hidden>
 <label for="f-title">Título</label><input id="f-title">
 <label for="f-author">Autor</label><input id="f-author">
+<label for="f-isbn">ISBN</label><input id="f-isbn" inputmode="numeric">
 <label for="f-status">Estado</label>
 <select id="f-status"><option value="quero">Quero ler</option><option value="a-ler">A ler</option><option value="lido">Lido</option></select>
 <label for="f-pages">Páginas</label><input id="f-pages" type="number" min="0" inputmode="numeric">
 <label for="f-pub">Editora</label><input id="f-pub">
-<label for="f-year">Ano</label><input id="f-year" inputmode="numeric">
+<label for="f-year">Data de lançamento</label><input id="f-year">
 <label>Avaliação</label><div class="rate" id="rate"></div>
 <label for="f-syn">Sinopse</label><textarea id="f-syn" rows="5"></textarea>
 <label for="f-notes">Notas</label><textarea id="f-notes" rows="3"></textarea>
@@ -136,11 +137,12 @@ function openDlg(id){
  $("dt").textContent=editing?"Editar livro":"Novo livro";
  $("f-title").value=b.title;$("f-author").value=b.author;$("f-status").value=b.status;
  $("f-pages").value=b.pages;$("f-notes").value=b.notes;$("f-syn").value=b.synopsis||"";$("f-pub").value=b.publisher||"";$("f-year").value=b.year||"";
- $("f-q").value="";st("");cover=b.cover||"";isbn=b.isbn||"";showCover();
+ $("f-q").value="";st("");$("isbw").hidden=true;$("f-isbn").value=b.isbn||"";cover=b.cover||"";isbn=b.isbn||"";showCover();
  rating=b.rating||0;drawRate();
  $("del").hidden=!editing;$("dlg").showModal();
 }
 function fill(b){
+ $("f-isbn").value=b.isbn||"";
  $("f-title").value=b.title||"";$("f-author").value=b.author||"";
  $("f-pages").value=b.pages||"";$("f-syn").value=b.synopsis||"";$("f-pub").value=b.publisher||"";$("f-year").value=b.year||"";
  cover=b.cover||"";isbn=b.isbn||"";showCover();
@@ -160,7 +162,7 @@ async function fromGoogle(q,code){
  const im=v.imageLinks||{};
  return {title:v.title+(v.subtitle?": "+v.subtitle:""),author:(v.authors||[]).join(", "),pages:v.pageCount||"",
   synopsis:(v.description||"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim(),
-  cover:(im.thumbnail||im.smallThumbnail||"").replace("http:","https:"),publisher:v.publisher||"",year:(v.publishedDate||"").slice(0,4),isbn:code};
+  cover:(im.thumbnail||im.smallThumbnail||"").replace("http:","https:"),publisher:v.publisher||"",year:v.publishedDate||"",isbn:code};
 }
 async function fromWorker(q,code){
  const u=$("wurl").value.trim();
@@ -239,10 +241,10 @@ async function search(){
  if(!navigator.onLine){st("Sem ligação à internet.");return}
  st("A procurar…");$("isbw").hidden=true;
  const {b,errs}=await lookup(q);
- if(b){fill(b);st("Encontrado. Confirma os dados e guarda.")}
+ if(b){fill(b);st(b.synopsis?"Encontrado. Confirma os dados e guarda.":"Encontrado, mas sem sinopse. Abre a Wook abaixo para copiares a sinopse.")}
  else if(errs.some(e=>/Failed to fetch|NetworkError|Load failed/i.test(e)))st("Esta página não consegue aceder à internet. Abre a app pelo endereço do GitHub, no Chrome. ("+errs.join("; ")+")");
  else st("Não encontrei. "+errs.join("; ")+".");
- if(!b){const c=q.replace(/[-\s]/g,"");if(/^(\d{9}[\dXx]|\d{13})$/.test(c)){$("isb").href="https://isbnsearch.org/isbn/"+c;$("isbw").hidden=false}}
+ if(!b||!b.synopsis){const c=q.replace(/[-\s]/g,"");if(/^(\d{9}[\dXx]|\d{13})$/.test(c)){$("isb").href="https://isbnsearch.org/isbn/"+c;$("wk").href="https://www.wook.pt/pesquisa/"+c;$("isbw").hidden=false}}
 }
 try{$("gkey").value=localStorage.getItem("gkey-v1")||""}catch(e){}
 $("gkey").oninput=()=>{try{localStorage.setItem("gkey-v1",$("gkey").value.trim())}catch(e){}};
@@ -304,7 +306,7 @@ $("rate").onclick=e=>{const r=+e.target.dataset.r;if(r){rating=rating===r?0:r;dr
 $("save").onclick=()=>{
  const title=$("f-title").value.trim();
  if(!title){$("f-title").focus();return}
- const data={title,author:$("f-author").value.trim(),status:$("f-status").value,pages:$("f-pages").value,rating,notes:$("f-notes").value.trim(),synopsis:$("f-syn").value.trim(),publisher:$("f-pub").value.trim(),year:$("f-year").value.trim(),cover,isbn};
+ const data={title,author:$("f-author").value.trim(),status:$("f-status").value,pages:$("f-pages").value,rating,notes:$("f-notes").value.trim(),synopsis:$("f-syn").value.trim(),publisher:$("f-pub").value.trim(),year:$("f-year").value.trim(),cover,isbn:$("f-isbn").value.trim()};
  if(editing)Object.assign(editing,data);else books.unshift({id:Date.now().toString(36),...data});
  persist();$("dlg").close();render();
 };
